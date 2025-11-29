@@ -27,11 +27,12 @@ class WC_Monthly_Export_Data_Extractor {
         $start_date = sprintf('%04d-%02d-01 00:00:00', $year, $month);
         $end_date = date('Y-m-t 23:59:59', strtotime($start_date));
 
-        // Récupérer toutes les commandes du mois (UNIQUEMENT les commandes, pas les remboursements)
+        // Récupérer TOUTES les commandes du mois (tous types et tous statuts)
         $args = array(
             'limit' => -1,
-            'type' => 'shop_order', // Important : exclure les remboursements (OrderRefund)
+            'type' => 'shop_order', // Uniquement les commandes (pas les remboursements enfants)
             'date_created' => $start_date . '...' . $end_date,
+            'status' => 'any', // IMPORTANT : tous les statuts
             'orderby' => 'date',
             'order' => 'ASC',
         );
@@ -70,14 +71,36 @@ class WC_Monthly_Export_Data_Extractor {
      * @return bool
      */
     private function is_validated_order($order) {
+        // Statuts considérés comme "validés" (à comptabiliser)
         $validated_statuses = array(
-            'processing',
-            'completed',
-            'on-hold',
+            'processing',    // En cours de traitement
+            'completed',     // Terminée
+            'on-hold',       // En attente
+            'refunded',      // Remboursée (à comptabiliser aussi !)
+        );
+
+        // Statuts "non validés" (en attente de paiement ou annulées)
+        $pending_statuses = array(
+            'pending',       // En attente de paiement
+            'failed',        // Échouée
+            'cancelled',     // Annulée
+            'trash',         // Corbeille
         );
 
         $status = $order->get_status();
-        return in_array($status, $validated_statuses);
+
+        // Si le statut est dans les validés, retourner true
+        if (in_array($status, $validated_statuses)) {
+            return true;
+        }
+
+        // Si le statut est dans les non validés, retourner false
+        if (in_array($status, $pending_statuses)) {
+            return false;
+        }
+
+        // Pour tout autre statut personnalisé, considérer comme validé par défaut
+        return true;
     }
 
     /**
