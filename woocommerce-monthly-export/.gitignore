@@ -1,6 +1,6 @@
 # Dépendances Composer
-/vendor/
-composer.lock
+# /vendor/ - Commenté pour inclure le vendor dans le repo
+# composer.lock - Inclus pour garantir les versions
 
 # Fichiers WordPress
 *.log
