@@ -27,9 +27,10 @@ class WC_Monthly_Export_Data_Extractor {
         $start_date = sprintf('%04d-%02d-01 00:00:00', $year, $month);
         $end_date = date('Y-m-t 23:59:59', strtotime($start_date));
 
-        // Récupérer toutes les commandes du mois
+        // Récupérer toutes les commandes du mois (UNIQUEMENT les commandes, pas les remboursements)
         $args = array(
             'limit' => -1,
+            'type' => 'shop_order', // Important : exclure les remboursements (OrderRefund)
             'date_created' => $start_date . '...' . $end_date,
             'orderby' => 'date',
             'order' => 'ASC',
@@ -42,6 +43,11 @@ class WC_Monthly_Export_Data_Extractor {
         $pending = array();
 
         foreach ($orders as $order) {
+            // Double vérification : s'assurer que c'est bien une commande
+            if (!$order instanceof WC_Order) {
+                continue;
+            }
+
             $order_data = $this->extract_order_data($order);
 
             if ($this->is_validated_order($order)) {
