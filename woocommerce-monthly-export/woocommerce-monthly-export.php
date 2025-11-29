@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce Monthly Export
  * Plugin URI: https://github.com/davidrieu/anthios
  * Description: Génère des exports comptables mensuels au format Excel pour WooCommerce, similaires aux exports Prestashop
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: David Rieu
  * Author URI: https://github.com/davidrieu
  * License: GPL v2 or later
@@ -22,30 +22,69 @@ if (!defined('ABSPATH')) {
 }
 
 // Définir les constantes du plugin
-define('WC_MONTHLY_EXPORT_VERSION', '1.0.0');
+define('WC_MONTHLY_EXPORT_VERSION', '1.0.1');
 define('WC_MONTHLY_EXPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WC_MONTHLY_EXPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 /**
- * Vérifier si WooCommerce est actif
+ * Vérifier si WooCommerce est actif et les dépendances installées
  */
-function wc_monthly_export_check_woocommerce() {
+function wc_monthly_export_check_requirements() {
+    $errors = array();
+
+    // Vérifier WooCommerce
     if (!class_exists('WooCommerce')) {
-        add_action('admin_notices', 'wc_monthly_export_woocommerce_missing_notice');
-        deactivate_plugins(plugin_basename(__FILE__));
+        $errors[] = 'woocommerce';
+    }
+
+    // Vérifier les dépendances Composer
+    $autoload_file = WC_MONTHLY_EXPORT_PLUGIN_DIR . 'vendor/autoload.php';
+    if (!file_exists($autoload_file)) {
+        $errors[] = 'composer';
+    }
+
+    if (!empty($errors)) {
+        add_action('admin_notices', function() use ($errors) {
+            wc_monthly_export_requirements_notice($errors);
+        });
         return false;
     }
+
     return true;
 }
-add_action('plugins_loaded', 'wc_monthly_export_check_woocommerce');
+add_action('plugins_loaded', 'wc_monthly_export_check_requirements');
 
 /**
- * Notice si WooCommerce n'est pas installé
+ * Notice si les prérequis ne sont pas remplis
  */
-function wc_monthly_export_woocommerce_missing_notice() {
+function wc_monthly_export_requirements_notice($errors) {
     ?>
-    <div class="error">
-        <p><?php _e('WooCommerce Monthly Export requiert WooCommerce pour fonctionner. Veuillez installer et activer WooCommerce.', 'wc-monthly-export'); ?></p>
+    <div class="notice notice-error">
+        <p><strong>WooCommerce Monthly Export - Erreur de configuration</strong></p>
+        <?php if (in_array('woocommerce', $errors)): ?>
+            <p>❌ WooCommerce n'est pas installé ou activé. Veuillez installer et activer WooCommerce.</p>
+        <?php endif; ?>
+        <?php if (in_array('composer', $errors)): ?>
+            <p>❌ Les dépendances PHP (PhpSpreadsheet) ne sont pas installées.</p>
+            <p><strong>Solutions :</strong></p>
+            <p>
+                <a href="<?php echo plugins_url('install-dependencies.php', __FILE__); ?>" class="button button-primary" target="_blank">
+                    🔧 Installer les dépendances automatiquement
+                </a>
+                <a href="https://github.com/davidrieu/anthios/blob/main/woocommerce-monthly-export/README.md#installation" class="button" target="_blank">
+                    📖 Voir le guide d'installation
+                </a>
+            </p>
+            <details>
+                <summary style="cursor: pointer; margin-top: 10px;"><strong>Installation manuelle via SSH/Terminal</strong></summary>
+                <ol style="margin-top: 10px;">
+                    <li>Ouvrir un terminal/SSH sur votre serveur</li>
+                    <li>Naviguer vers : <code><?php echo esc_html(WC_MONTHLY_EXPORT_PLUGIN_DIR); ?></code></li>
+                    <li>Exécuter : <code>composer install --no-dev --optimize-autoloader</code></li>
+                    <li>Désactiver puis réactiver le plugin</li>
+                </ol>
+            </details>
+        <?php endif; ?>
     </div>
     <?php
 }
@@ -197,8 +236,9 @@ class WC_Monthly_Export {
 
 // Initialiser le plugin
 function wc_monthly_export_init() {
-    if (class_exists('WooCommerce')) {
+    // Ne charger le plugin que si tous les prérequis sont remplis
+    if (class_exists('WooCommerce') && file_exists(WC_MONTHLY_EXPORT_PLUGIN_DIR . 'vendor/autoload.php')) {
         WC_Monthly_Export::get_instance();
     }
 }
-add_action('plugins_loaded', 'wc_monthly_export_init');
+add_action('plugins_loaded', 'wc_monthly_export_init', 20);

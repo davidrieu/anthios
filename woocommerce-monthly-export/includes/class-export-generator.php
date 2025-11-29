@@ -12,7 +12,13 @@ if (!defined('ABSPATH')) {
 
 // Charger PhpSpreadsheet si disponible
 if (!class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet')) {
-    require_once WC_MONTHLY_EXPORT_PLUGIN_DIR . 'vendor/autoload.php';
+    $autoload_file = WC_MONTHLY_EXPORT_PLUGIN_DIR . 'vendor/autoload.php';
+    if (file_exists($autoload_file)) {
+        require_once $autoload_file;
+    } else {
+        // Ne pas charger la classe si les dépendances ne sont pas installées
+        return;
+    }
 }
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
