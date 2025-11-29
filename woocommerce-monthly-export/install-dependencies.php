@@ -7,18 +7,31 @@
  * @package WC_Monthly_Export
  */
 
-// Sécurité : Empêcher l'accès direct
+// Charger WordPress si pas déjà chargé
 if (!defined('ABSPATH')) {
-    // Si accès direct, vérifier qu'on est dans WordPress
-    if (!file_exists('../../wp-load.php')) {
-        die('Accès direct non autorisé');
+    // Chercher wp-load.php en remontant les répertoires
+    $wp_load = null;
+    $dir = dirname(__FILE__);
+
+    // Remonter jusqu'à 5 niveaux pour trouver wp-load.php
+    for ($i = 0; $i < 5; $i++) {
+        $dir = dirname($dir);
+        if (file_exists($dir . '/wp-load.php')) {
+            $wp_load = $dir . '/wp-load.php';
+            break;
+        }
     }
-    require_once '../../wp-load.php';
+
+    if ($wp_load === null) {
+        die('Erreur: Impossible de trouver WordPress. Ce script doit être exécuté depuis un plugin WordPress.');
+    }
+
+    require_once $wp_load;
 }
 
 // Vérifier les permissions admin
 if (!current_user_can('manage_options')) {
-    wp_die('Vous n\'avez pas les permissions nécessaires.');
+    wp_die('Vous n\'avez pas les permissions nécessaires pour accéder à cette page.');
 }
 
 // Définir le répertoire du plugin
