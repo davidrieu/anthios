@@ -218,12 +218,14 @@ class WC_Monthly_Export_Data_Extractor {
         }
 
         // Fallback sur l'ID de la méthode
-        $payment_gateways = WC()->payment_gateways->payment_gateways();
-        if (isset($payment_gateways[$payment_method])) {
-            return $payment_gateways[$payment_method]->get_title();
+        if (function_exists('WC') && WC()->payment_gateways) {
+            $payment_gateways = WC()->payment_gateways->payment_gateways();
+            if (isset($payment_gateways[$payment_method])) {
+                return $payment_gateways[$payment_method]->get_title();
+            }
         }
 
-        return $payment_method;
+        return $payment_method ? $payment_method : 'Non spécifié';
     }
 
     /**
