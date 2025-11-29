@@ -1,0 +1,25 @@
+{
+    "name": "davidrieu/woocommerce-monthly-export",
+    "description": "Plugin WooCommerce pour générer des exports comptables mensuels au format Excel",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "David Rieu",
+            "email": "contact@davidrieu.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "phpoffice/phpspreadsheet": "^1.29"
+    },
+    "autoload": {
+        "psr-4": {
+            "WC_Monthly_Export\\": "includes/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

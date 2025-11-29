@@ -1,0 +1,147 @@
+/**
+ * Styles pour la page d'administration WooCommerce Monthly Export
+ */
+
+.wc-monthly-export-wrap {
+    max-width: 1200px;
+    margin: 20px 0;
+}
+
+.wc-monthly-export-wrap h1 {
+    margin-bottom: 20px;
+}
+
+.wc-monthly-export-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.wc-export-card,
+.wc-export-info {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.wc-export-card h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    color: #1d2327;
+}
+
+.wc-export-card p.description {
+    color: #646970;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.wc-export-form .form-table {
+    margin-top: 20px;
+    border: none;
+}
+
+.wc-export-form .form-table th {
+    font-weight: 600;
+    padding: 15px 10px 15px 0;
+}
+
+.wc-export-form .form-table td {
+    padding: 15px 10px;
+}
+
+.wc-export-form select {
+    min-width: 200px;
+}
+
+.wc-export-form .button-hero {
+    padding: 12px 24px;
+    height: auto;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.wc-export-form .button-hero .dashicons {
+    font-size: 20px;
+    vertical-align: middle;
+    margin-right: 8px;
+    line-height: 1.5;
+}
+
+.wc-export-info {
+    overflow-y: auto;
+    max-height: 600px;
+}
+
+.wc-export-info h3 {
+    margin-top: 0;
+    border-bottom: 2px solid #2271b1;
+    padding-bottom: 10px;
+    color: #2271b1;
+    font-size: 18px;
+}
+
+.wc-info-section {
+    margin-bottom: 25px;
+}
+
+.wc-info-section h4 {
+    margin-bottom: 10px;
+    margin-top: 15px;
+    color: #50575e;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.wc-info-section p {
+    margin-bottom: 10px;
+    color: #646970;
+}
+
+.wc-info-section ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.wc-info-section ul li {
+    margin-bottom: 8px;
+    color: #646970;
+    line-height: 1.6;
+}
+
+.wc-info-section ul li strong {
+    color: #1d2327;
+}
+
+/* Animation au survol du bouton */
+.wc-export-form .button-hero:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+}
+
+/* Responsive */
+@media screen and (max-width: 960px) {
+    .wc-monthly-export-container {
+        grid-template-columns: 1fr;
+    }
+
+    .wc-export-info {
+        max-height: none;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .wc-export-form select {
+        min-width: 100%;
+    }
+
+    .wc-export-form .button-hero {
+        width: 100%;
+        text-align: center;
+    }
+}

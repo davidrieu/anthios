@@ -1,0 +1,25 @@
+# Dépendances Composer
+/vendor/
+composer.lock
+
+# Fichiers WordPress
+*.log
+.htaccess
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.cache
