@@ -143,42 +143,149 @@ if (!defined('WC_MONTHLY_EXPORT_PLUGIN_DIR')) {
                     <h3>Installation en cours...</h3>
                     <?php
 
+                    flush();
+                    ob_flush();
+
+                    $success = false;
+
                     if ($composer_available) {
-                        // Installer avec Composer
-                        echo '<p>Exécution de Composer...</p>';
+                        // Méthode 1: Installer avec Composer
+                        echo '<p>📦 Exécution de Composer...</p>';
+                        flush();
                         $install_dir = WC_MONTHLY_EXPORT_PLUGIN_DIR;
                         $command = "cd " . escapeshellarg($install_dir) . " && composer install --no-dev --optimize-autoloader 2>&1";
                         exec($command, $install_output, $install_code);
 
                         if ($install_code === 0 && file_exists($autoload_file)) {
-                            ?>
-                            <div class="step success">
-                                <h3>✅ Installation réussie !</h3>
-                                <p>Les dépendances ont été installées avec succès.</p>
-                                <p><strong>Prochaines étapes :</strong></p>
-                                <ol>
-                                    <li>Aller dans Extensions et désactiver le plugin "WooCommerce Monthly Export"</li>
-                                    <li>Réactiver le plugin</li>
-                                    <li>Aller dans WooCommerce > Export Mensuel</li>
-                                </ol>
-                                <p><a href="<?php echo admin_url('plugins.php'); ?>" class="button button-large">Aller aux Extensions</a></p>
-                            </div>
-                            <?php
-                        } else {
-                            ?>
-                            <div class="step error">
-                                <h3>❌ Erreur lors de l'installation</h3>
-                                <p>L'installation avec Composer a échoué.</p>
-                                <pre><?php echo esc_html(implode("\n", $install_output)); ?></pre>
-                            </div>
-                            <?php
+                            $success = true;
                         }
+                    }
+
+                    if (!$success) {
+                        // Méthode 2: Téléchargement direct depuis GitHub
+                        echo '<p>📥 Téléchargement de PhpSpreadsheet depuis GitHub...</p>';
+                        flush();
+
+                        // URL du fichier ZIP de PhpSpreadsheet
+                        $phpspreadsheet_version = '1.29.0';
+                        $zip_url = "https://github.com/PHPOffice/PhpSpreadsheet/archive/refs/tags/{$phpspreadsheet_version}.zip";
+                        $zip_file = WC_MONTHLY_EXPORT_PLUGIN_DIR . 'phpspreadsheet.zip';
+
+                        // Télécharger le fichier
+                        $zip_content = file_get_contents($zip_url);
+
+                        if ($zip_content !== false) {
+                            file_put_contents($zip_file, $zip_content);
+                            echo '<p>✅ Téléchargement terminé</p>';
+                            flush();
+
+                            // Extraire le ZIP
+                            echo '<p>📂 Extraction des fichiers...</p>';
+                            flush();
+
+                            $zip = new ZipArchive;
+                            if ($zip->open($zip_file) === TRUE) {
+                                // Créer le dossier vendor s'il n'existe pas
+                                if (!file_exists($vendor_dir)) {
+                                    mkdir($vendor_dir, 0755, true);
+                                }
+
+                                // Créer les dossiers nécessaires
+                                $phpoffice_dir = $vendor_dir . '/phpoffice';
+                                $spreadsheet_dir = $phpoffice_dir . '/phpspreadsheet';
+
+                                if (!file_exists($phpoffice_dir)) {
+                                    mkdir($phpoffice_dir, 0755, true);
+                                }
+
+                                // Extraire dans un dossier temporaire
+                                $temp_dir = WC_MONTHLY_EXPORT_PLUGIN_DIR . 'temp_extract';
+                                $zip->extractTo($temp_dir);
+                                $zip->close();
+
+                                // Déplacer les fichiers au bon endroit
+                                $extracted_dir = $temp_dir . "/PhpSpreadsheet-{$phpspreadsheet_version}";
+                                if (file_exists($extracted_dir)) {
+                                    rename($extracted_dir, $spreadsheet_dir);
+                                }
+
+                                // Nettoyer
+                                unlink($zip_file);
+                                if (file_exists($temp_dir)) {
+                                    rmdir($temp_dir);
+                                }
+
+                                // Créer l'autoload.php
+                                $autoload_content = <<<'PHP'
+<?php
+// Autoloader pour PhpSpreadsheet
+spl_autoload_register(function ($class) {
+    // PhpSpreadsheet classes
+    if (strpos($class, 'PhpOffice\\PhpSpreadsheet\\') === 0) {
+        $classFile = __DIR__ . '/phpoffice/phpspreadsheet/src/' . str_replace('\\', '/', $class) . '.php';
+        if (file_exists($classFile)) {
+            require_once $classFile;
+            return;
+        }
+    }
+
+    // Autres dépendances possibles
+    $dependencies = [
+        'Psr\\SimpleCache\\' => __DIR__ . '/psr/simple-cache/src/',
+        'Psr\\Http\\Message\\' => __DIR__ . '/psr/http-message/src/',
+        'Psr\\Http\\Client\\' => __DIR__ . '/psr/http-client/src/',
+    ];
+
+    foreach ($dependencies as $prefix => $baseDir) {
+        if (strpos($class, $prefix) === 0) {
+            $relativeClass = substr($class, strlen($prefix));
+            $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
+            if (file_exists($file)) {
+                require_once $file;
+                return;
+            }
+        }
+    }
+});
+PHP;
+                                file_put_contents($autoload_file, $autoload_content);
+
+                                echo '<p>✅ Extraction terminée</p>';
+                                flush();
+
+                                if (file_exists($autoload_file)) {
+                                    $success = true;
+                                }
+                            } else {
+                                echo '<p>❌ Impossible d\'extraire le fichier ZIP</p>';
+                            }
+                        } else {
+                            echo '<p>❌ Échec du téléchargement</p>';
+                        }
+                    }
+
+                    if ($success) {
+                        ?>
+                        <div class="step success">
+                            <h3>✅ Installation réussie !</h3>
+                            <p>Les dépendances ont été installées avec succès.</p>
+                            <p><strong>Prochaines étapes :</strong></p>
+                            <ol>
+                                <li>Fermer cet onglet</li>
+                                <li>Retourner dans l'administration WordPress</li>
+                                <li>Rafraîchir la page (F5)</li>
+                                <li>Le message d'erreur devrait avoir disparu</li>
+                                <li>Aller dans WooCommerce > Export Mensuel</li>
+                            </ol>
+                            <p><a href="<?php echo admin_url('plugins.php'); ?>" class="button button-large">Retour aux Extensions</a></p>
+                        </div>
+                        <?php
                     } else {
                         ?>
                         <div class="step error">
-                            <h3>❌ Composer non disponible</h3>
-                            <p>Composer n'est pas installé sur ce serveur.</p>
-                            <p>Veuillez suivre la méthode manuelle ci-dessous.</p>
+                            <h3>❌ Erreur lors de l'installation</h3>
+                            <p>L'installation automatique a échoué.</p>
+                            <p>Veuillez essayer une installation manuelle ou contactez le support.</p>
                         </div>
                         <?php
                     }
@@ -194,23 +301,24 @@ if (!defined('WC_MONTHLY_EXPORT_PLUGIN_DIR')) {
                     <p>Le plugin ne peut pas fonctionner sans ces dépendances.</p>
                 </div>
 
-                <h2>Option 1 : Installation automatique <?php echo $composer_available ? '✅ (Recommandée)' : '❌ (Non disponible)'; ?></h2>
+                <h2>Option 1 : Installation automatique ✅ (Recommandée)</h2>
 
-                <?php if ($composer_available): ?>
-                    <div class="step">
-                        <p>Composer est détecté sur votre serveur. Cliquez sur le bouton ci-dessous pour installer automatiquement les dépendances.</p>
-                        <form method="post" action="">
-                            <button type="submit" name="install_dependencies" class="button button-large">
-                                🚀 Installer les dépendances automatiquement
-                            </button>
-                        </form>
-                    </div>
-                <?php else: ?>
-                    <div class="step error">
-                        <p>Composer n'est pas disponible sur ce serveur.</p>
-                        <p>Veuillez utiliser une des méthodes manuelles ci-dessous.</p>
-                    </div>
-                <?php endif; ?>
+                <div class="step">
+                    <?php if ($composer_available): ?>
+                        <p>✅ Composer est détecté sur votre serveur. Cliquez sur le bouton ci-dessous pour installer automatiquement les dépendances.</p>
+                    <?php else: ?>
+                        <p>⚠️ Composer n'est pas disponible, mais ce n'est pas grave !</p>
+                        <p><strong>Le script va télécharger PhpSpreadsheet directement depuis Internet et l'installer automatiquement.</strong></p>
+                    <?php endif; ?>
+                    <form method="post" action="">
+                        <button type="submit" name="install_dependencies" class="button button-large">
+                            🚀 Installer les dépendances automatiquement
+                        </button>
+                    </form>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        <em>Cela peut prendre 30 secondes à 1 minute...</em>
+                    </p>
+                </div>
 
                 <h2>Option 2 : Installation manuelle via SSH/Terminal</h2>
                 <div class="step">
