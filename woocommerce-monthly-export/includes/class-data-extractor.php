@@ -258,7 +258,7 @@ class WC_Monthly_Export_Data_Extractor {
     }
 
     /**
-     * Obtenir la répartition des montants HT par taux de TVA
+     * Obtenir la répartition des montants HT par taux de TVA (PRODUITS UNIQUEMENT, sans port)
      *
      * @param WC_Order $order
      * @return array
@@ -280,7 +280,9 @@ class WC_Monthly_Export_Data_Extractor {
 
             if ($tax_rate) {
                 $rate_percent = floatval($tax_rate['tax_rate']);
-                $tax_amount = floatval($tax_item->get_tax_total()) + floatval($tax_item->get_shipping_tax_total());
+
+                // IMPORTANT : Uniquement la TVA sur les PRODUITS (pas sur le port)
+                $tax_amount = floatval($tax_item->get_tax_total());
 
                 if ($tax_amount > 0) {
                     // Calculer la base HT à partir de la TVA
