@@ -120,27 +120,65 @@ class WC_Monthly_Export_Data_Extractor {
         $company = $order->get_billing_company();
         $is_new_customer = $this->is_new_customer($order);
 
-        // Statut
+        // Statut (avec gestion des remboursements)
         $status = $this->get_order_status_label($order);
 
-        // Montants
-        $total_ttc = floatval($order->get_total());
-        $total_ht = $total_ttc - floatval($order->get_total_tax());
+        // Vérifier si la commande a des remboursements
+        $total_refunded = floatval($order->get_total_refunded());
+        $has_refund = $total_refunded > 0;
 
-        // Produits
-        $products_ttc = floatval($order->get_subtotal()) + floatval($order->get_total_tax()) - floatval($order->get_shipping_tax());
-        $products_ht = floatval($order->get_subtotal());
+        // Montants AVANT remboursement
+        $total_ttc_original = floatval($order->get_total());
+        $total_tax_original = floatval($order->get_total_tax());
+        $subtotal_original = floatval($order->get_subtotal());
+        $shipping_total_original = floatval($order->get_shipping_total());
+        $shipping_tax_original = floatval($order->get_shipping_tax());
 
-        // Frais de port
-        $shipping_ttc = floatval($order->get_shipping_total()) + floatval($order->get_shipping_tax());
-        $shipping_ht = floatval($order->get_shipping_total());
+        // Si remboursement, ajuster le statut et les montants
+        if ($has_refund) {
+            // Modifier le statut pour indiquer le remboursement
+            $is_fully_refunded = ($total_refunded >= $total_ttc_original);
+            if ($is_fully_refunded) {
+                $status .= ' (Remboursée)';
+            } else {
+                $status .= ' (Partiellement remboursée)';
+            }
+
+            // Calculer les montants remboursés par catégorie
+            $refund_data = $this->get_refund_breakdown($order);
+
+            // Montants APRÈS remboursement (ce qui reste à comptabiliser)
+            $total_ttc = $total_ttc_original - $total_refunded;
+            $total_tax = $total_tax_original - $refund_data['tax_refunded'];
+            $subtotal = $subtotal_original - $refund_data['products_refunded'];
+            $shipping_total = $shipping_total_original - $refund_data['shipping_refunded'];
+            $shipping_tax = $shipping_tax_original - $refund_data['shipping_tax_refunded'];
+        } else {
+            // Pas de remboursement, utiliser les montants originaux
+            $total_ttc = $total_ttc_original;
+            $total_tax = $total_tax_original;
+            $subtotal = $subtotal_original;
+            $shipping_total = $shipping_total_original;
+            $shipping_tax = $shipping_tax_original;
+        }
+
+        // Calculer HT à partir des TTC
+        $total_ht = $total_ttc - $total_tax;
+        $products_ttc = $subtotal + ($total_tax - $shipping_tax);
+        $products_ht = $subtotal;
+        $shipping_ttc = $shipping_total + $shipping_tax;
+        $shipping_ht = $shipping_total;
 
         // Réductions
         $discount_ttc = floatval($order->get_total_discount());
         $discount_ht = $discount_ttc / 1.20; // Approximation
 
-        // Répartition par taux de TVA
-        $tax_breakdown = $this->get_tax_breakdown($order);
+        // Répartition par taux de TVA (en tenant compte des remboursements)
+        if ($has_refund) {
+            $tax_breakdown = $this->get_tax_breakdown_with_refunds($order, $refund_data);
+        } else {
+            $tax_breakdown = $this->get_tax_breakdown($order);
+        }
 
         // Mode de paiement
         $payment_method = $this->get_payment_method_label($order);
@@ -310,6 +348,92 @@ class WC_Monthly_Export_Data_Extractor {
                 $breakdown['20'] = $order_subtotal;
             } else {
                 $breakdown['0'] = $order_subtotal;
+            }
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Obtenir le détail des montants remboursés
+     *
+     * @param WC_Order $order
+     * @return array
+     */
+    private function get_refund_breakdown($order) {
+        $refund_data = array(
+            'products_refunded' => 0,
+            'shipping_refunded' => 0,
+            'tax_refunded' => 0,
+            'shipping_tax_refunded' => 0,
+            'tax_breakdown' => array('20' => 0, '10' => 0, '5.5' => 0, '0' => 0),
+        );
+
+        // Récupérer tous les remboursements de cette commande
+        $refunds = $order->get_refunds();
+
+        foreach ($refunds as $refund) {
+            // Montant total remboursé pour les produits
+            $refund_data['products_refunded'] += abs(floatval($refund->get_total()) - floatval($refund->get_shipping_total()));
+
+            // Frais de port remboursés
+            $refund_data['shipping_refunded'] += abs(floatval($refund->get_shipping_total()));
+
+            // Taxes remboursées
+            $refund_data['tax_refunded'] += abs(floatval($refund->get_total_tax()));
+            $refund_data['shipping_tax_refunded'] += abs(floatval($refund->get_shipping_tax()));
+
+            // Répartition des taxes remboursées par taux
+            $refund_tax_items = $refund->get_items('tax');
+            foreach ($refund_tax_items as $tax_item) {
+                $rate_id = $tax_item->get_rate_id();
+                $tax_rate = WC_Tax::_get_tax_rate($rate_id);
+
+                if ($tax_rate) {
+                    $rate_percent = floatval($tax_rate['tax_rate']);
+                    $tax_amount = abs(floatval($tax_item->get_tax_total())); // Produits seulement
+
+                    if ($tax_amount > 0) {
+                        // Calculer la base HT remboursée
+                        $base_ht_refunded = ($tax_amount / $rate_percent) * 100;
+
+                        // Classifier par taux
+                        if ($rate_percent >= 19 && $rate_percent <= 21) {
+                            $refund_data['tax_breakdown']['20'] += $base_ht_refunded;
+                        } elseif ($rate_percent >= 9 && $rate_percent <= 11) {
+                            $refund_data['tax_breakdown']['10'] += $base_ht_refunded;
+                        } elseif ($rate_percent >= 5 && $rate_percent <= 6) {
+                            $refund_data['tax_breakdown']['5.5'] += $base_ht_refunded;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $refund_data;
+    }
+
+    /**
+     * Obtenir la répartition par taux de TVA en tenant compte des remboursements
+     *
+     * @param WC_Order $order
+     * @param array $refund_data
+     * @return array
+     */
+    private function get_tax_breakdown_with_refunds($order, $refund_data) {
+        // Calculer la répartition normale
+        $breakdown = $this->get_tax_breakdown($order);
+
+        // Soustraire les montants remboursés par taux
+        $breakdown['20'] -= $refund_data['tax_breakdown']['20'];
+        $breakdown['10'] -= $refund_data['tax_breakdown']['10'];
+        $breakdown['5.5'] -= $refund_data['tax_breakdown']['5.5'];
+        $breakdown['0'] -= $refund_data['tax_breakdown']['0'];
+
+        // S'assurer qu'on n'a pas de montants négatifs
+        foreach ($breakdown as $key => $value) {
+            if ($value < 0) {
+                $breakdown[$key] = 0;
             }
         }
 
