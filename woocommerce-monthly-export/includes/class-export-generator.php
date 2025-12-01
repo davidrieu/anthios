@@ -140,9 +140,80 @@ class WC_Monthly_Export_Generator {
                 $row++;
             }
 
+            // Ajouter une ligne vide
+            $row++;
+
+            // Ajouter la ligne de totaux
+            $this->add_totals_row($sheet, $data, $row);
+
             // Ajuster la largeur des colonnes
             $this->auto_size_columns($sheet, count($this->columns));
         }
+    }
+
+    /**
+     * Ajouter la ligne de totaux
+     *
+     * @param \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet
+     * @param array $data
+     * @param int $row
+     */
+    private function add_totals_row($sheet, $data, $row) {
+        // Colonnes à totaliser
+        $columns_to_sum = array(
+            'TOTAL TTC',
+            'TOTAL HT',
+            'PRODUITS TTC',
+            'PRODUITS HT',
+            'HT 20',
+            'HT 10',
+            'HT 5.5',
+            'HT 0',
+            'PORT TTC',
+            'PORT HT',
+        );
+
+        // Calculer les totaux
+        $totals = array();
+        foreach ($columns_to_sum as $column) {
+            $totals[$column] = 0;
+            foreach ($data as $order_data) {
+                if (isset($order_data[$column])) {
+                    $totals[$column] += floatval($order_data[$column]);
+                }
+            }
+        }
+
+        // Écrire la ligne de totaux
+        $col = 'A';
+        foreach ($this->columns as $column) {
+            if ($column === 'id_order') {
+                // Première colonne : écrire "TOTAL"
+                $sheet->setCellValue($col . $row, 'TOTAL');
+            } elseif (in_array($column, $columns_to_sum)) {
+                // Colonnes à totaliser : écrire le total
+                $sheet->setCellValue($col . $row, round($totals[$column], 2));
+            }
+            // Les autres colonnes restent vides
+            $col++;
+        }
+
+        // Styler la ligne de totaux
+        $last_column = $this->get_column_letter(count($this->columns));
+        $range = 'A' . $row . ':' . $last_column . $row;
+
+        // Texte en gras
+        $sheet->getStyle($range)->getFont()->setBold(true);
+
+        // Fond gris clair
+        $sheet->getStyle($range)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFE7E6E6');
+
+        // Bordures
+        $sheet->getStyle($range)->getBorders()
+            ->getAllBorders()
+            ->setBorderStyle(Border::BORDER_THIN);
     }
 
     /**
