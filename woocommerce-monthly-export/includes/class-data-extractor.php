@@ -278,18 +278,22 @@ class WC_Monthly_Export_Data_Extractor {
      */
     private function get_payment_method_label($order) {
         $payment_method = $order->get_payment_method();
-        $payment_method_title = $order->get_payment_method_title();
 
-        if (!empty($payment_method_title)) {
-            return $payment_method_title;
+        // Normaliser pour ne retourner que "Stripe" ou "Paypal"
+        // Vérifier si c'est PayPal (différentes variantes possibles)
+        if (stripos($payment_method, 'paypal') !== false || stripos($payment_method, 'ppec') !== false) {
+            return 'Paypal';
         }
 
-        // Fallback sur l'ID de la méthode
-        if (function_exists('WC') && WC()->payment_gateways) {
-            $payment_gateways = WC()->payment_gateways->payment_gateways();
-            if (isset($payment_gateways[$payment_method])) {
-                return $payment_gateways[$payment_method]->get_title();
-            }
+        // Vérifier si c'est Stripe
+        if (stripos($payment_method, 'stripe') !== false) {
+            return 'Stripe';
+        }
+
+        // Fallback : retourner la méthode telle quelle si ce n'est ni Stripe ni PayPal
+        $payment_method_title = $order->get_payment_method_title();
+        if (!empty($payment_method_title)) {
+            return $payment_method_title;
         }
 
         return $payment_method ? $payment_method : 'Non spécifié';
