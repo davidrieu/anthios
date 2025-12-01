@@ -373,10 +373,11 @@ class WC_Monthly_Export_Data_Extractor {
         $refunds = $order->get_refunds();
 
         foreach ($refunds as $refund) {
-            // Montant total remboursé pour les produits
-            $refund_data['products_refunded'] += abs(floatval($refund->get_total()) - floatval($refund->get_shipping_total()));
+            // Montant HT remboursé pour les produits (exclure shipping ET taxes)
+            // Formula: total_refund - shipping - all_taxes + shipping_tax = products_ht_only
+            $refund_data['products_refunded'] += abs(floatval($refund->get_total())) - abs(floatval($refund->get_shipping_total())) - abs(floatval($refund->get_total_tax())) + abs(floatval($refund->get_shipping_tax()));
 
-            // Frais de port remboursés
+            // Frais de port HT remboursés
             $refund_data['shipping_refunded'] += abs(floatval($refund->get_shipping_total()));
 
             // Taxes remboursées
